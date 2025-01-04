@@ -51,7 +51,7 @@ public:
     void setTaskQueMaxThreshold(int threshold);
 
     // 提交任务给线程池
-    void submit(std::shared_ptr<Task> sp);
+    void submitTask(std::shared_ptr<Task> sp);
 
     // 开启线程池
     void start();
@@ -59,7 +59,7 @@ private:
     // 定义线程函数
     void threadFunc();
 private:
-    std::vector<Thread*> threads_; // 线程列表
+    std::vector<std::unique_ptr<Thread>> threads_; // 线程列表
     size_t initThreadSize_; //初始线程数量
     PoolMode poolMode_;
 
@@ -72,6 +72,5 @@ private:
     std::condition_variable notFull_; // 任务队列不满
     std::condition_variable notEmpty_;
 };
-
 
 #endif //THREADPOOL_THREADPOOL_H
