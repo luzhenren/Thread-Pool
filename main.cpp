@@ -4,11 +4,17 @@
 
 class MyTask : public Task {
 public:
-    void run() {
-        std::cout << "tid" << std::this_thread::get_id() << "begin!" << std::endl;
-        std::this_thread::sleep_for(std::chrono::seconds(2));
-        std::cout << "tid" << std::this_thread::get_id() << "end!" << std::endl;
+    MyTask():begin_(0), end_(0){}
+    ~MyTask(){}
+    MyTask(int b, int e):begin_(b), end_(e){}
+
+    Any run() {
+        int sum = begin_ + end_;
+        return sum;
     }
+private:
+    int begin_;
+    int end_;
 };
 
 int main() {
@@ -16,14 +22,19 @@ int main() {
     pool.setInitThreadSize(4);
     pool.start();
 
-    pool.submitTask(std::make_shared<MyTask>());
-    pool.submitTask(std::make_shared<MyTask>());
-    pool.submitTask(std::make_shared<MyTask>());
-    pool.submitTask(std::make_shared<MyTask>());
-    pool.submitTask(std::make_shared<MyTask>());
-    pool.submitTask(std::make_shared<MyTask>());
-    pool.submitTask(std::make_shared<MyTask>());
-    pool.submitTask(std::make_shared<MyTask>());
+    Result res = pool.submitTask(std::make_shared<MyTask>(1, 100));
+
+    int sum = res.get().cast_<int>();
+
+    std::cout << sum << std::endl;
+//    pool.submitTask(std::make_shared<MyTask>());
+//    pool.submitTask(std::make_shared<MyTask>());
+//    pool.submitTask(std::make_shared<MyTask>());
+//    pool.submitTask(std::make_shared<MyTask>());
+//    pool.submitTask(std::make_shared<MyTask>());
+//    pool.submitTask(std::make_shared<MyTask>());
+//    pool.submitTask(std::make_shared<MyTask>());
+//    pool.submitTask(std::make_shared<MyTask>());
 
    getchar();
 }
