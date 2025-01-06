@@ -33,20 +33,23 @@ void ThreadPool::setTaskQueMaxThreshold(int threshold) {
     taskSizeMaxThreshold_ = threshold;
 }
 
-void ThreadPool::submitTask(std::shared_ptr<Task> sp) {
+Result ThreadPool::submitTask(std::shared_ptr<Task> sp) {
     // 获取锁
     std::unique_lock<std::mutex> lock(taskQueMtx_);
     // 线程通信等待任务队列有空余
     if (!notFull_.wait_for(lock, std::chrono::seconds(1) ,
                            [&]()->bool {return taskQue_.size() < taskSizeMaxThreshold_;})) {
         std::cerr << "task queue is full , submit task failed" << std::endl;
-        return ;
+        return Result(sp, false);
     }
     taskQue_.emplace(sp);
     taskSize_++;
 
     // 任务队列不空了，在notEmpty通知·
     notEmpty_.notify_all();
+
+    // 返回任务的Result对象
+    return Result(sp);
 }
 void ThreadPool::start() {
     // 创建线程对象
@@ -89,7 +92,7 @@ void ThreadPool::threadFunc() {
         }
         // 执行任务
         if (task != nullptr) {
-            task->run();
+            task->exec();
         }
     }
 }
@@ -110,6 +113,49 @@ void Thread::start() {
     t.detach();
 }
 
+/////////////////  Task方法实现
+Task::Task()
+        : result_(nullptr)
+{}
+
+void Task::exec()
+{
+    if (result_ != nullptr)
+    {
+        result_->setVal(run()); // 这里发生多态调用
+    }
+}
+
+void Task::setResult(Result* res)
+{
+    result_ = res;
+}
+
+
+/////////////////   Result方法的实现
+Result::Result(std::shared_ptr<Task> task, bool isValid)
+        : isValid_(isValid)
+        , task_(task)
+{
+    task_->setResult(this);
+}
+
+Any Result::get() // 用户调用的
+{
+    if (!isValid_)
+    {
+        return "";
+    }
+    sem_.wait(); // task任务如果没有执行完，这里会阻塞用户的线程
+    return std::move(any_);
+}
+
+void Result::setVal(Any any)  // 谁调用的呢？？？
+{
+    // 存储task的返回值
+    this->any_ = std::move(any);
+    sem_.post(); // 已经获取的任务的返回值，增加信号量资源
+}
 
 
 
