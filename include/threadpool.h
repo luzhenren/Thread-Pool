@@ -8,6 +8,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <functional>
+#include <unordered_map>
 
 // Any类型：可以接收任意数据的类型
 class Any
@@ -142,14 +143,18 @@ enum class PoolMode{
 class Thread{
 public:
     // 没有参数的函数类型
-    using ThreadFunc = std::function<void()>;
+    using ThreadFunc = std::function<void(int)>;
     // 线程构造
     Thread(ThreadFunc func);
     // 线程析构
     ~Thread();
     void start();
+
+    int getId() const;
 private:
     ThreadFunc func_;
+    static int generateId_;
+    int threadId_;
 };
 
 class ThreadPool {
@@ -176,11 +181,13 @@ public:
     ThreadPool& operator=(const ThreadPool&) = delete;
 private:
     // 定义线程函数
-    void threadFunc();
+    void threadFunc(int threadId);
 private:
-    std::vector<std::unique_ptr<Thread>> threads_; // 线程列表
+    std::unordered_map<int ,std::unique_ptr<Thread>> threads_; // 线程列表
     size_t initThreadSize_; //初始线程数量
-    PoolMode poolMode_;
+    std::atomic_int curThreadSize_; // 当前线程数量
+    int threadSizeThreshold_; // 线程数量阈值
+    std::atomic_int idleThreadSize; // 空闲线程数量
 
     // 用户传入基类Task对象指针，需要拉长生命周期
     std::queue<std::shared_ptr<Task>> taskQue_; // 任务队列
@@ -190,6 +197,10 @@ private:
     std::mutex taskQueMtx_; //保证任务队列线程安全
     std::condition_variable notFull_; // 任务队列不满
     std::condition_variable notEmpty_;
+
+    PoolMode poolMode_; // 工作模式
+
+    std::atomic_bool isPoolRunning; // 运行状态
 };
 
 #endif //THREADPOOL_THREADPOOL_H

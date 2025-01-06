@@ -10,6 +10,7 @@ public:
 
     Any run() {
         int sum = begin_ + end_;
+        sleep(3);
         return sum;
     }
 private:
@@ -19,10 +20,17 @@ private:
 
 int main() {
     ThreadPool pool;
+    pool.setMode(PoolMode::MODE_CACHE);
     pool.setInitThreadSize(4);
     pool.start();
 
     Result res = pool.submitTask(std::make_shared<MyTask>(1, 100));
+    Result res1 = pool.submitTask(std::make_shared<MyTask>(1, 100));
+    Result res2 = pool.submitTask(std::make_shared<MyTask>(1, 100));
+    Result res3 = pool.submitTask(std::make_shared<MyTask>(1, 100));
+    Result res4 = pool.submitTask(std::make_shared<MyTask>(1, 100));
+    Result res5 = pool.submitTask(std::make_shared<MyTask>(1, 100));
+
 
     int sum = res.get().cast_<int>();
 
