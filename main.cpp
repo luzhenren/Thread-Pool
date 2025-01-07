@@ -19,30 +19,23 @@ private:
 };
 
 int main() {
-    ThreadPool pool;
-    pool.setMode(PoolMode::MODE_CACHE);
-    pool.setInitThreadSize(4);
-    pool.start();
+    {
+        ThreadPool pool;
+        pool.setMode(PoolMode::MODE_CACHE);
+        pool.setInitThreadSize(4);
+        pool.start();
 
-    Result res = pool.submitTask(std::make_shared<MyTask>(1, 100));
-    Result res1 = pool.submitTask(std::make_shared<MyTask>(1, 100));
-    Result res2 = pool.submitTask(std::make_shared<MyTask>(1, 100));
-    Result res3 = pool.submitTask(std::make_shared<MyTask>(1, 100));
-    Result res4 = pool.submitTask(std::make_shared<MyTask>(1, 100));
-    Result res5 = pool.submitTask(std::make_shared<MyTask>(1, 100));
+        Result res = pool.submitTask(std::make_shared<MyTask>(1, 100));
+        Result res1 = pool.submitTask(std::make_shared<MyTask>(1, 100));
+        Result res2 = pool.submitTask(std::make_shared<MyTask>(1, 100));
+        Result res3 = pool.submitTask(std::make_shared<MyTask>(1, 100));
+        Result res4 = pool.submitTask(std::make_shared<MyTask>(1, 100));
+        Result res5 = pool.submitTask(std::make_shared<MyTask>(1, 100));
 
 
-    int sum = res.get().cast_<int>();
+        int sum = res.get().cast_<int>();
 
-    std::cout << sum << std::endl;
-//    pool.submitTask(std::make_shared<MyTask>());
-//    pool.submitTask(std::make_shared<MyTask>());
-//    pool.submitTask(std::make_shared<MyTask>());
-//    pool.submitTask(std::make_shared<MyTask>());
-//    pool.submitTask(std::make_shared<MyTask>());
-//    pool.submitTask(std::make_shared<MyTask>());
-//    pool.submitTask(std::make_shared<MyTask>());
-//    pool.submitTask(std::make_shared<MyTask>());
-
+        std::cout << sum << std::endl;
+    }
    getchar();
 }
