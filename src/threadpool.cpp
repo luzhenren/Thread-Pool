@@ -22,7 +22,11 @@ ThreadPool::ThreadPool()
 }
 
 ThreadPool::~ThreadPool() {
-
+    isPoolRunning = false;
+    notEmpty_.notify_all(); // 所有人从等待状态变成唤醒状态
+    // 等待线程池所有线程返回
+    std::unique_lock<std::mutex> lock(taskQueMtx_);
+    exitCond_.wait(lock, [&]()->bool {return threads_.empty();});
 }
 
 void ThreadPool::setMode(PoolMode mode) {
@@ -93,21 +97,20 @@ Result ThreadPool::submitTask(std::shared_ptr<Task> sp) {
 void ThreadPool::threadFunc(int threadId) {
     auto lastTime = std::chrono::high_resolution_clock().now();
 
-    for(;;) {
+    while(isPoolRunning) {
         std::shared_ptr<Task> task;
         {
             // 先获取锁
             std::unique_lock<std::mutex> lock(taskQueMtx_);
             std::cout << "tid: " << std::this_thread::get_id() << "try to get task" << std::endl;
 
-            // cache模式下，需要回收超时线程
-            if (poolMode_ == PoolMode::MODE_CACHE) {
-                // 每一秒判断一次, 怎么区分超时还是有任务
-                while (taskSize_ == 0) {
+            while (taskSize_ == 0) {
+                // cache模式下，需要回收超时线程
+                if (poolMode_ == PoolMode::MODE_CACHE) {
                     // 超时返回
                     if (notEmpty_.wait_for(lock, std::chrono::seconds(1)) == std::cv_status::timeout) {
                         auto now = std::chrono::high_resolution_clock().now();
-                        auto duration =std::chrono::duration_cast<std::chrono::seconds>( now - lastTime);
+                        auto duration = std::chrono::duration_cast<std::chrono::seconds>(now - lastTime);
                         if (duration.count() >= 10 && curThreadSize_ > initThreadSize_) {
                             // 回收线程
                             threads_.erase(threadId);
@@ -118,10 +121,17 @@ void ThreadPool::threadFunc(int threadId) {
                             return;
                         }
                     }
+                } else {
+                    // 等待notEmpty
+                    notEmpty_.wait(lock);
                 }
-            } else {
-                // 等待notEmpty
-                notEmpty_.wait(lock, [&]()->bool {return !taskQue_.empty();});
+                // 检查有任务还是要结束
+                if (!isPoolRunning) {
+                    threads_.erase(threadId);
+                    std::cout << "threadid: " << std::this_thread::get_id() << " exit!" << std::endl;
+                    exitCond_.notify_all();
+                    return ;
+                }
             }
 
             idleThreadSize--;
@@ -146,6 +156,9 @@ void ThreadPool::threadFunc(int threadId) {
         idleThreadSize++;
         lastTime = std::chrono::high_resolution_clock().now(); // 更新线程调度时间
     }
+    threads_.erase(threadId);
+    std::cout << "threadid: " << std::this_thread::get_id() << " exit!" << std::endl;
+    exitCond_.notify_all();
 }
 
 ///////////////////////// 线程方法实现

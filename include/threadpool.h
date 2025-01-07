@@ -197,6 +197,7 @@ private:
     std::mutex taskQueMtx_; //保证任务队列线程安全
     std::condition_variable notFull_; // 任务队列不满
     std::condition_variable notEmpty_;
+    std::condition_variable exitCond_; // 等待全部线程资源回收
 
     PoolMode poolMode_; // 工作模式
 
