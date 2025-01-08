@@ -23,9 +23,9 @@ ThreadPool::ThreadPool()
 
 ThreadPool::~ThreadPool() {
     isPoolRunning = false;
-    notEmpty_.notify_all(); // 所有人从等待状态变成唤醒状态
     // 等待线程池所有线程返回
     std::unique_lock<std::mutex> lock(taskQueMtx_);
+    notEmpty_.notify_all(); // 所有人从等待状态变成唤醒状态
     exitCond_.wait(lock, [&]()->bool {return threads_.empty();});
 }
 
@@ -97,14 +97,20 @@ Result ThreadPool::submitTask(std::shared_ptr<Task> sp) {
 void ThreadPool::threadFunc(int threadId) {
     auto lastTime = std::chrono::high_resolution_clock().now();
 
-    while(isPoolRunning) {
+    for(;;) {
         std::shared_ptr<Task> task;
         {
             // 先获取锁
             std::unique_lock<std::mutex> lock(taskQueMtx_);
             std::cout << "tid: " << std::this_thread::get_id() << "try to get task" << std::endl;
 
-            while (taskSize_ == 0) {
+            while ( taskSize_ == 0) {
+                if (!isPoolRunning) {
+                    threads_.erase(threadId);
+                    std::cout << "threadid: " << std::this_thread::get_id() << " exit!" << std::endl;
+                    exitCond_.notify_all();
+                    break;
+                }
                 // cache模式下，需要回收超时线程
                 if (poolMode_ == PoolMode::MODE_CACHE) {
                     // 超时返回
@@ -116,7 +122,6 @@ void ThreadPool::threadFunc(int threadId) {
                             threads_.erase(threadId);
                             curThreadSize_--;
                             idleThreadSize--;
-
                             std::cout << "thread id " << std::this_thread::get_id() << "exit" << std::endl;
                             return;
                         }
@@ -124,13 +129,6 @@ void ThreadPool::threadFunc(int threadId) {
                 } else {
                     // 等待notEmpty
                     notEmpty_.wait(lock);
-                }
-                // 检查有任务还是要结束
-                if (!isPoolRunning) {
-                    threads_.erase(threadId);
-                    std::cout << "threadid: " << std::this_thread::get_id() << " exit!" << std::endl;
-                    exitCond_.notify_all();
-                    return ;
                 }
             }
 
@@ -156,9 +154,6 @@ void ThreadPool::threadFunc(int threadId) {
         idleThreadSize++;
         lastTime = std::chrono::high_resolution_clock().now(); // 更新线程调度时间
     }
-    threads_.erase(threadId);
-    std::cout << "threadid: " << std::this_thread::get_id() << " exit!" << std::endl;
-    exitCond_.notify_all();
 }
 
 ///////////////////////// 线程方法实现

@@ -34,7 +34,6 @@ int main() {
 
 
         int sum = res.get().cast_<int>();
-
         std::cout << sum << std::endl;
     }
    getchar();
