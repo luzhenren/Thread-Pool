@@ -97,14 +97,20 @@ Result ThreadPool::submitTask(std::shared_ptr<Task> sp) {
 void ThreadPool::threadFunc(int threadId) {
     auto lastTime = std::chrono::high_resolution_clock().now();
 
-    while(isPoolRunning) {
+    for(;;) {
         std::shared_ptr<Task> task;
         {
             // 先获取锁
             std::unique_lock<std::mutex> lock(taskQueMtx_);
             std::cout << "tid: " << std::this_thread::get_id() << "try to get task" << std::endl;
 
-            while (isPoolRunning && taskSize_ == 0) {
+            while ( taskSize_ == 0) {
+                if (!isPoolRunning) {
+                    threads_.erase(threadId);
+                    std::cout << "threadid: " << std::this_thread::get_id() << " exit!" << std::endl;
+                    exitCond_.notify_all();
+                    break;
+                }
                 // cache模式下，需要回收超时线程
                 if (poolMode_ == PoolMode::MODE_CACHE) {
                     // 超时返回
@@ -124,10 +130,6 @@ void ThreadPool::threadFunc(int threadId) {
                     // 等待notEmpty
                     notEmpty_.wait(lock);
                 }
-            }
-
-            if (!isPoolRunning) {
-                break;
             }
 
             idleThreadSize--;
@@ -152,9 +154,6 @@ void ThreadPool::threadFunc(int threadId) {
         idleThreadSize++;
         lastTime = std::chrono::high_resolution_clock().now(); // 更新线程调度时间
     }
-    threads_.erase(threadId);
-    std::cout << "threadid: " << std::this_thread::get_id() << " exit!" << std::endl;
-    exitCond_.notify_all();
 }
 
 ///////////////////////// 线程方法实现
